@@ -102,6 +102,7 @@ resource "aws_instance" "main" {
   subnet_id              = aws_subnet.public.id
   vpc_security_group_ids = [aws_security_group.ec2.id]
   key_name               = aws_key_pair.main.key_name
+  user_data              = file("install.sh")
 
   tags = {
     Name = "dorin-ec2"
