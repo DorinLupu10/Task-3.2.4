@@ -88,3 +88,32 @@ resource "aws_security_group" "ec2" {
     Name = "dorin-ec2-sg"
   }
 }
+
+# Key
+resource "aws_key_pair" "main" {
+  key_name   = "dorin-key"
+  public_key = file("~/.ssh/dorin-key.pub")
+}
+
+# EC2 
+resource "aws_instance" "main" {
+  ami                    = "ami-0c02fb55956c7d316"
+  instance_type          = "t2.micro"
+  subnet_id              = aws_subnet.public.id
+  vpc_security_group_ids = [aws_security_group.ec2.id]
+  key_name               = aws_key_pair.main.key_name
+
+  tags = {
+    Name = "dorin-ec2"
+  }
+}
+
+# elastic IP
+resource "aws_eip" "main" {
+  instance = aws_instance.main.id
+  domain   = "vpc"
+
+  tags = {
+    Name = "dorin-eip"
+  }
+}
