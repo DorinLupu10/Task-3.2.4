@@ -1,6 +1,6 @@
 #!/bin/bash
-apt update -y
-apt install -y nginx certbot python3-certbot-nginx
+yum update -y
+yum install -y nginx certbot python3-certbot-nginx
 
 # index
 cat > /var/www/html/index.html <<EOF
