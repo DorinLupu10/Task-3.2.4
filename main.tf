@@ -103,6 +103,7 @@ resource "aws_instance" "main" {
   vpc_security_group_ids = [aws_security_group.ec2.id]
   key_name               = aws_key_pair.main.key_name
   user_data              = file("install.sh")
+  user_data_replace_on_change = true
 
   tags = {
     Name = "dorin-ec2"
