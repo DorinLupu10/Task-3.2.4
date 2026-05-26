@@ -97,7 +97,7 @@ resource "aws_key_pair" "main" {
 
 # EC2 
 resource "aws_instance" "main" {
-  ami                    = "ami-0c02fb55956c7d316"
+  ami                    = "ami-091138d0f0d41ff90"
   instance_type          = "t2.micro"
   subnet_id              = aws_subnet.public.id
   vpc_security_group_ids = [aws_security_group.ec2.id]
@@ -118,4 +118,18 @@ resource "aws_eip" "main" {
   tags = {
     Name = "dorin-eip"
   }
+}
+
+data "aws_route53_zone" "main" {
+  name         = var.domain_name
+  private_zone = false
+}
+
+# Route 53
+resource "aws_route53_record" "ec2" {
+  zone_id = data.aws_route53_zone.main.zone_id
+  name    = "${var.subdomain}.${var.domain_name}"
+  type    = "A"
+  ttl     = 300
+  records = [aws_eip.main.public_ip]
 }

@@ -1,8 +1,8 @@
 #!/bin/bash
-yum update -y
-yum install -y nginx certbot python3-certbot-nginx
+apt update -y
+apt install -y nginx certbot python3-certbot-nginx
 
-# index
+# Creează pagina HTML
 cat > /var/www/html/index.html <<EOF
 <!DOCTYPE html>
 <html>
