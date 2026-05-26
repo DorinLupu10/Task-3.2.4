@@ -3,9 +3,9 @@ variable "domain_name" {
   default     = "wolflife.net"
 }
 
-variable "bucket_name" {
-  description = "Numele bucket"
-  default     = "dorin-s3bucket"
+variable "region" {
+  description = "AWS region"
+  default     = "us-east-1"
 }
 
 variable "subdomain" {
