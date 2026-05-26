@@ -36,6 +36,9 @@ resource "aws_route_table" "public" {
     gateway_id = aws_internet_gateway.main.id
   }
 
+  tags = {
+    Name = "dorin-public-rt"
+  }
 }
 
 # Asociere Route Table cu Subnet
