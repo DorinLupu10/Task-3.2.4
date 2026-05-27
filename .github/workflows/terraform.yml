@@ -1,5 +1,10 @@
 name: Terraform CI
 
+on:
+  pull_request:
+    branches:
+      - feature/task3.2.4
+
 jobs:
   terraform:
     name: Terraform Checks
