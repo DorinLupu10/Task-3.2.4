@@ -48,3 +48,22 @@ EOF
 
 systemctl start nginx
 systemctl enable nginx
+
+DOMAIN="task324.wolflife.net"
+EMAIL="lupu1025@gmail.com"
+
+for i in {1..30}; do
+    if getent hosts "${DOMAIN}" > /dev/null; then
+        break
+    fi
+    sleep 10
+done
+
+certbot --nginx \
+    --non-interactive \
+    --agree-tos \
+    --redirect \
+    --email "${EMAIL}" \
+    -d "${DOMAIN}"
+
+systemctl reload nginx
