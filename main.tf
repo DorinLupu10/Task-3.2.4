@@ -97,12 +97,12 @@ resource "aws_key_pair" "main" {
 
 # EC2 
 resource "aws_instance" "main" {
-  ami                    = "ami-091138d0f0d41ff90"
-  instance_type          = "t2.micro"
-  subnet_id              = aws_subnet.public.id
-  vpc_security_group_ids = [aws_security_group.ec2.id]
-  key_name               = aws_key_pair.main.key_name
-  user_data              = file("install.sh")
+  ami                         = "ami-091138d0f0d41ff90"
+  instance_type               = "t2.micro"
+  subnet_id                   = aws_subnet.public.id
+  vpc_security_group_ids      = [aws_security_group.ec2.id]
+  key_name                    = aws_key_pair.main.key_name
+  user_data                   = file("install.sh")
   user_data_replace_on_change = true
 
   tags = {
