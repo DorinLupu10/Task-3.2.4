@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feature/task3.2.4
+  pull_request:
+    branches:
+      - dev
 
 jobs:
   terraform:
