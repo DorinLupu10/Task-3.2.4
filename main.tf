@@ -77,6 +77,22 @@ resource "aws_security_group" "ec2" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  ingress {
+    description = "SSH from github"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+ingress {
+  description = "Ghostfolio App"
+  from_port   = 3333
+  to_port     = 3333
+  protocol    = "tcp"
+  cidr_blocks = ["0.0.0.0/0"]
+}
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -132,4 +148,17 @@ resource "aws_route53_record" "ec2" {
   type    = "A"
   ttl     = 300
   records = [aws_eip.main.public_ip]
+}
+
+resource "aws_ecr_repository" "ghostfolio" {
+  name                 = "ghostfolio"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  tags = {
+    Name = "ghostfolio"
+  }
 }
