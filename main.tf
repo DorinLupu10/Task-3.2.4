@@ -162,3 +162,38 @@ resource "aws_ecr_repository" "ghostfolio" {
     Name = "ghostfolio"
   }
 }
+
+#  Role pentru EC2
+resource "aws_iam_role" "ec2_ecr_role" {
+  name = "ec2-ecr-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "ec2-ecr-role"
+  }
+}
+
+# Atasare policy ECR la role
+resource "aws_iam_role_policy_attachment" "ec2_ecr_policy" {
+  role       = aws_iam_role.ec2_ecr_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
+
+# Instance Profile
+resource "aws_iam_instance_profile" "ec2_profile" {
+  name = "ec2-ecr-profile"
+  role = aws_iam_role.ec2_ecr_role.name
+
+  
