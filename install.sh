@@ -38,9 +38,45 @@ server {
 }
 NGINX
 
-
 systemctl start nginx
 systemctl enable nginx
+
+cat > /usr/local/bin/watcher.sh <<'WATCHER'
+#!/bin/bash
+
+COMPOSE_FILE="/home/ubuntu/app/docker-compose.yml"
+
+echo "Monitorizez $COMPOSE_FILE la schimbari..."
+
+while inotifywait -e close_write "$COMPOSE_FILE"; do
+    echo "docker-compose.yml changed, restarting..."
+    cd /home/ubuntu/app
+    docker compose --env-file .env up -d
+done
+WATCHER
+
+chmod +x /usr/local/bin/watcher.sh
+
+cat > /etc/systemd/system/watcher.service <<'SERVICE'
+[Unit]
+Description=Docker Compose Watcher
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/watcher.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+SERVICE
+
+systemctl daemon-reload
+systemctl enable watcher
+systemctl start watcher
+
 
 DOMAIN="task324.wolflife.net"
 EMAIL="lupu1025@gmail.com"
