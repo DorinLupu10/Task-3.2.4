@@ -120,6 +120,7 @@ resource "aws_instance" "main" {
   key_name                    = aws_key_pair.main.key_name
   user_data                   = file("install.sh")
   user_data_replace_on_change = true
+  iam_instance_profile        = aws_iam_instance_profile.ec2_profile.name  # adaugă această linie
 
   tags = {
     Name = "dorin-ec2"
@@ -196,4 +197,4 @@ resource "aws_iam_instance_profile" "ec2_profile" {
   name = "ec2-ecr-profile"
   role = aws_iam_role.ec2_ecr_role.name
 
-  
+}

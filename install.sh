@@ -2,49 +2,42 @@
 apt update -y
 apt install -y nginx certbot python3-certbot-nginx
 
-# Creează pagina HTML
-cat > /var/www/html/index.html <<EOF
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hello Foxminded</title>
+mkdir -p /home/ubuntu/app
 
-    <style>
-        body {
-            margin: 0;
-            height: 100vh;
-
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-
-            background-color: #f2f5f7; /* culoare pală */
-            font-family: Arial, sans-serif;
-        }
-
-        h1 {
-            font-size: 64px;
-            color: #4a5568;
-            margin: 0;
-            font-weight: 600;
-        }
-
-        p {
-            margin-top: 20px;
-            font-size: 24px;
-            color: #718096;
-        }
-    </style>
-</head>
-<body>
-    <h1>Hello Foxminded</h1>
-    <p>Task 3.2.4 Getting started with EC2</p>
-</body>
-</html>
+# Creare fisier .env
+cat > /home/ubuntu/app/.env <<EOF
+COMPOSE_PROJECT_NAME=ghostfolio
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_PASSWORD=redis123secure
+POSTGRES_DB=ghostfolio-db
+POSTGRES_USER=ghostfolio
+POSTGRES_PASSWORD=postgres123secure
+ACCESS_TOKEN_SALT=$(openssl rand -hex 32)
+DATABASE_URL=postgresql://ghostfolio:postgres123secure@postgres:5432/ghostfolio-db?connect_timeout=300&sslmode=prefer
+JWT_SECRET_KEY=$(openssl rand -hex 32)
 EOF
+
+
+chown ubuntu:ubuntu /home/ubuntu/app/.env
+
+# Configurare Nginx ca reverse proxy
+cat > /etc/nginx/sites-available/default <<'NGINX'
+server {
+    listen 80;
+    server_name task324.wolflife.net;
+
+    location / {
+        proxy_pass http://localhost:3333;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+NGINX
+
 
 systemctl start nginx
 systemctl enable nginx
