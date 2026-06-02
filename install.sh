@@ -1,6 +1,12 @@
 #!/bin/bash
 apt update -y
-apt install -y nginx certbot python3-certbot-nginx
+apt install -y nginx certbot python3-certbot-nginx docker.io docker-compose-plugin awscli inotify-tools
+
+
+systemctl start docker
+systemctl enable docker
+
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 449024774937.dkr.ecr.us-east-1.amazonaws.com
 
 mkdir -p /home/ubuntu/app
 
@@ -45,6 +51,12 @@ cat > /usr/local/bin/watcher.sh <<'WATCHER'
 #!/bin/bash
 
 COMPOSE_FILE="/home/ubuntu/app/docker-compose.yml"
+
+# steapta pina cind fisierul exista
+echo "Astept crearea fisierului $COMPOSE_FILE..."
+while [ ! -f "$COMPOSE_FILE" ]; do
+    sleep 5
+done
 
 echo "Monitorizez $COMPOSE_FILE la schimbari..."
 

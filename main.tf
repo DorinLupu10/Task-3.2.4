@@ -85,13 +85,13 @@ resource "aws_security_group" "ec2" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-ingress {
-  description = "Ghostfolio App"
-  from_port   = 3333
-  to_port     = 3333
-  protocol    = "tcp"
-  cidr_blocks = ["0.0.0.0/0"]
-}
+  ingress {
+    description = "Ghostfolio App"
+    from_port   = 3333
+    to_port     = 3333
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
   egress {
     from_port   = 0
@@ -120,7 +120,7 @@ resource "aws_instance" "main" {
   key_name                    = aws_key_pair.main.key_name
   user_data                   = file("install.sh")
   user_data_replace_on_change = true
-  iam_instance_profile        = aws_iam_instance_profile.ec2_profile.name  # adaugă această linie
+  iam_instance_profile        = aws_iam_instance_profile.ec2_profile.name # adaugă această linie
 
   tags = {
     Name = "dorin-ec2"
