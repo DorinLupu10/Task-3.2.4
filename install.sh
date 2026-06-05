@@ -129,3 +129,28 @@ certbot --nginx \
     -d "${DOMAIN}"
 
 systemctl reload nginx
+
+# Script de backup
+cat > /usr/local/bin/backup.sh <<'BACKUP'
+#!/bin/bash
+
+DATE=$(date +%Y-%m-%d-%H-%M-%S)
+BACKUP_FILE="/tmp/ghostfolio-backup-$DATE.sql.gz"
+S3_BUCKET="dorin-db-backups"
+CONTAINER="gf-postgres"
+DB_USER="ghostfolio"
+DB_NAME="ghostfolio-db"
+
+echo "Starting backup at $DATE..."
+
+# Dump baza de date si comprima
+docker exec $CONTAINER pg_dump -U $DB_USER $DB_NAME | gzip > $BACKUP_FILE
+
+# Upload in S3
+aws s3 cp $BACKUP_FILE s3://$S3_BUCKET/backups/$(basename $BACKUP_FILE)
+
+# Sterge fisierul local
+rm -f $BACKUP_FILE
+
+echo "Backup completed successfully!"
+BACKUP
