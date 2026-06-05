@@ -1,6 +1,24 @@
 # VPC
-resource "aws_vpc" "main" {
-  cidr_block = "10.0.0.0/16"
+# resource "aws_vpc" "main" {
+#   cidr_block = "10.0.0.0/16"
+
+#   tags = {
+#     Name = "dorin-vpc"
+#   }
+# }
+
+module "vpc" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "~> 5.0"
+
+  name = "dorin-vpc"
+  cidr = "10.0.0.0/16"
+
+  azs            = ["us-east-1a"]
+  public_subnets = ["10.0.1.0/24"]
+
+  enable_nat_gateway = false
+  enable_vpn_gateway = false
 
   tags = {
     Name = "dorin-vpc"
@@ -8,50 +26,50 @@ resource "aws_vpc" "main" {
 }
 
 # Subnet public
-resource "aws_subnet" "public" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.1.0/24"
-  availability_zone = "${var.region}a"
+# resource "aws_subnet" "public" {
+#   vpc_id            = module.vpc.vpc_id
+#   cidr_block        = "10.0.1.0/24"
+#   availability_zone = "${var.region}a"
 
-  tags = {
-    Name = "dorin-public-subnet"
-  }
-}
+#   tags = {
+#     Name = "dorin-public-subnet"
+#   }
+# }
 
 # Gateway
-resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
+# resource "aws_internet_gateway" "main" {
+#   vpc_id = module.vpc.vpc_id
 
-  tags = {
-    Name = "dorin-igw"
-  }
-}
+#   tags = {
+#     Name = "dorin-igw"
+#   }
+# }
 
 # Route Table
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
+# resource "aws_route_table" "public" {
+#   vpc_id = module.vpc.vpc_id
 
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
-  }
+#   route {
+#     cidr_block = "0.0.0.0/0"
+#     gateway_id = aws_internet_gateway.main.id
+#   }
 
-  tags = {
-    Name = "dorin-public-rt"
-  }
-}
+#   tags = {
+#     Name = "dorin-public-rt"
+#   }
+# }
 
-# Asociere Route Table cu Subnet
-resource "aws_route_table_association" "public" {
-  subnet_id      = aws_subnet.public.id
-  route_table_id = aws_route_table.public.id
-}
+# # Asociere Route Table cu Subnet
+# resource "aws_route_table_association" "public" {
+#   subnet_id      = module.vpc.public_subnets[0]
+#   route_table_id = aws_route_table.public.id
+# }
 
 # Security Group
 resource "aws_security_group" "ec2" {
   name        = "dorin-ec2-sg"
   description = "Security group for EC2 web server"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = module.vpc.vpc_id
 
   ingress {
     description = "SSH"
@@ -115,7 +133,7 @@ resource "aws_key_pair" "main" {
 resource "aws_instance" "main" {
   ami                         = "ami-091138d0f0d41ff90"
   instance_type               = "t2.micro"
-  subnet_id                   = aws_subnet.public.id
+  subnet_id                   = module.vpc.public_subnets[0]
   vpc_security_group_ids      = [aws_security_group.ec2.id]
   key_name                    = aws_key_pair.main.key_name
   user_data                   = file("install.sh")
