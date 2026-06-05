@@ -228,6 +228,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "db_backups" {
     id     = "backup-lifecycle"
     status = "Enabled"
 
+    filter {
+      prefix = ""
+    }
+
     transition {
       days          = 7
       storage_class = "GLACIER"
