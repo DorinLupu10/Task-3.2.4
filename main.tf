@@ -126,7 +126,7 @@ resource "aws_security_group" "ec2" {
 # Key
 resource "aws_key_pair" "main" {
   key_name   = "dorin-key"
-  public_key = file("~/.ssh/dorin-key.pub")
+  public_key = var.ec2_public_key
 }
 
 # EC2 

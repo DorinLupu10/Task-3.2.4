@@ -17,3 +17,8 @@ variable "my_ip" {
   description = "My public IP for SSH "
   default     = "89.149.93.193/32"
 }
+
+variable "ec2_public_key" {
+  description = "Public key"
+  type        = string
+}
