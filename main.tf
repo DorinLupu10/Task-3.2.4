@@ -198,3 +198,43 @@ resource "aws_iam_instance_profile" "ec2_profile" {
   role = aws_iam_role.ec2_ecr_role.name
 
 }
+
+# Task 3.2.6 Connecting EC2 with S3
+
+# S3 Bucket pentru backup-uri
+resource "aws_s3_bucket" "db_backups" {
+  bucket = "dorin-db-backups"
+
+  tags = {
+    Name = "dorin-db-backups"
+  }
+}
+
+# Block public access
+resource "aws_s3_bucket_public_access_block" "db_backups" {
+  bucket = aws_s3_bucket.db_backups.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+# Lifecycle Policy
+resource "aws_s3_bucket_lifecycle_configuration" "db_backups" {
+  bucket = aws_s3_bucket.db_backups.id
+
+  rule {
+    id     = "backup-lifecycle"
+    status = "Enabled"
+
+    transition {
+      days          = 7
+      storage_class = "GLACIER"
+    }
+
+    expiration {
+      days = 30
+    }
+  }
+}

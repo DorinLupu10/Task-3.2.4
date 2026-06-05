@@ -1,6 +1,25 @@
 #!/bin/bash
+#apt update -y
+#apt install -y nginx certbot python3-certbot-nginx docker.io docker-compose-plugin awscli inotify-tools
+
+# Add Docker's official GPG key:
+sudo apt install ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+# Add the repository to Apt sources:
+sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+
 apt update -y
-apt install -y nginx certbot python3-certbot-nginx docker.io docker-compose-plugin awscli inotify-tools
+apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin nginx certbot python3-certbot-nginx awscli inotify-tools
 
 
 systemctl start docker
@@ -24,6 +43,8 @@ DATABASE_URL=postgresql://ghostfolio:postgres123secure@postgres:5432/ghostfolio-
 JWT_SECRET_KEY=$(openssl rand -hex 32)
 EOF
 
+chown -R ubuntu:ubuntu /home/ubuntu/app
+chmod -R 755 /home/ubuntu/app
 
 chown ubuntu:ubuntu /home/ubuntu/app/.env
 
