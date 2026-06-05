@@ -242,3 +242,33 @@ resource "aws_s3_bucket_lifecycle_configuration" "db_backups" {
     }
   }
 }
+
+# IAM Policy pentru S3 backup
+resource "aws_iam_policy" "db_backup_policy" {
+  name        = "dorin-db-backup-policy"
+  description = "Policy pentru acces S3 backup"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          aws_s3_bucket.db_backups.arn,
+          "${aws_s3_bucket.db_backups.arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
+# Atașează policy-ul la IAM Role
+resource "aws_iam_role_policy_attachment" "ec2_s3_backup_policy" {
+  role       = aws_iam_role.ec2_ecr_role.name
+  policy_arn = aws_iam_policy.db_backup_policy.arn
+}
