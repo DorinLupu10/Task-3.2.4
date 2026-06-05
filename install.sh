@@ -154,3 +154,5 @@ rm -f $BACKUP_FILE
 
 echo "Backup completed successfully!"
 BACKUP
+
+echo "0 3 * * * root /usr/local/bin/backup.sh >> /var/log/backup.log 2>&1" > /etc/cron.d/db-backup
