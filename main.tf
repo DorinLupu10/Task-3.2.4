@@ -290,3 +290,30 @@ resource "aws_iam_role_policy_attachment" "ec2_s3_backup_policy" {
   role       = aws_iam_role.ec2_ecr_role.name
   policy_arn = aws_iam_policy.db_backup_policy.arn
 }
+
+## Task 3.2.7 Getting cache out of EC2
+
+resource "aws_security_group" "elasticache" {
+  name        = "dorin-elasticache-sg"
+  description = "Security group ElastiCache redis"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    description     = "Redis"
+    from_port       = 6379
+    to_port         = 6379
+    protocol        = "tcp"
+    security_groups = [aws_security_group.ec2.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "dorin-elasticache-sg"
+  }
+}
