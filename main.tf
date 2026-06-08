@@ -317,3 +317,37 @@ resource "aws_security_group" "elasticache" {
     Name = "dorin-elasticache-sg"
   }
 }
+
+resource "aws_elasticache_subnet_group" "main" {
+  name       = "dorin-elasticache-subnet-group"
+  subnet_ids = module.vpc.public_subnets
+
+  tags = {
+    Name = "dorin-elasticache-subnet-group"
+  }
+}
+
+
+resource "aws_elasticache_cluster" "redis" {
+  cluster_id           = "dorin-redis"
+  engine               = "redis"
+  node_type            = "cache.t3.micro"
+  num_cache_nodes      = 1
+  parameter_group_name = "default.redis7"
+  engine_version       = "7.1"
+  port                 = 6379
+  subnet_group_name    = aws_elasticache_subnet_group.main.name
+  security_group_ids   = [aws_security_group.elasticache.id]
+
+  tags = {
+    Name = "dorin-redis"
+  }
+}
+
+
+# CloudWatch
+
+resource "aws_iam_role_policy_attachment" "ec2_cloudwatch_policy" {
+  role       = aws_iam_role.ec2_ecr_role.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
