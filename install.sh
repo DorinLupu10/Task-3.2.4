@@ -9,14 +9,8 @@ sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyring
 sudo chmod a+r /etc/apt/keyrings/docker.asc
 
 # Add the repository to Apt sources:
-sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
-Types: deb
-URIs: https://download.docker.com/linux/ubuntu
-Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
-Components: stable
-Architectures: $(dpkg --print-architecture)
-Signed-By: /etc/apt/keyrings/docker.asc
-EOF
+UBUNTU_CODENAME=$(. /etc/os-release && echo "$VERSION_CODENAME")
+echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $UBUNTU_CODENAME stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
 apt update -y
 apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin nginx certbot python3-certbot-nginx awscli inotify-tools
@@ -32,15 +26,19 @@ mkdir -p /home/ubuntu/app
 # Creare fisier .env
 cat > /home/ubuntu/app/.env <<EOF
 COMPOSE_PROJECT_NAME=ghostfolio
-REDIS_HOST=redis
+#REDIS_HOST=dorin-redis.vofghc.0001.use1.cache.amazonaws.com
+#REDIS_PORT=6379
+#REDIS_PASSWORD=
+#REDIS_PASSWORD=redis123secure
+REDIS_HOST=${redis_host}
 REDIS_PORT=6379
-REDIS_PASSWORD=redis123secure
+REDIS_PASSWORD=${redis_password}
 POSTGRES_DB=ghostfolio-db
 POSTGRES_USER=ghostfolio
 POSTGRES_PASSWORD=postgres123secure
-ACCESS_TOKEN_SALT=$(openssl rand -hex 32)
+ACCESS_TOKEN_SALT=$$(openssl rand -hex 32)
 DATABASE_URL=postgresql://ghostfolio:postgres123secure@postgres:5432/ghostfolio-db?connect_timeout=300&sslmode=prefer
-JWT_SECRET_KEY=$(openssl rand -hex 32)
+JWT_SECRET_KEY=$$(openssl rand -hex 32)
 EOF
 
 chown -R ubuntu:ubuntu /home/ubuntu/app
@@ -115,7 +113,7 @@ DOMAIN="task324.wolflife.net"
 EMAIL="lupu1025@gmail.com"
 
 for i in {1..30}; do
-    if getent hosts "${DOMAIN}" > /dev/null; then
+    if getent hosts "$DOMAIN" > /dev/null; then
         break
     fi
     sleep 10
@@ -125,8 +123,8 @@ certbot --nginx \
     --non-interactive \
     --agree-tos \
     --redirect \
-    --email "${EMAIL}" \
-    -d "${DOMAIN}"
+    --email "$EMAIL" \
+    -d "$DOMAIN"
 
 systemctl reload nginx
 
@@ -134,7 +132,7 @@ systemctl reload nginx
 cat > /usr/local/bin/backup.sh <<'BACKUP'
 #!/bin/bash
 
-DATE=$(date +%Y-%m-%d-%H-%M-%S)
+DATE=$$(date +%Y-%m-%d-%H-%M-%S)
 BACKUP_FILE="/tmp/ghostfolio-backup-$DATE.sql.gz"
 S3_BUCKET="dorin-db-backups"
 CONTAINER="gf-postgres"
@@ -147,7 +145,7 @@ echo "Starting backup at $DATE..."
 docker exec $CONTAINER pg_dump -U $DB_USER $DB_NAME | gzip > $BACKUP_FILE
 
 # Upload in S3
-aws s3 cp $BACKUP_FILE s3://$S3_BUCKET/backups/$(basename $BACKUP_FILE)
+aws s3 cp $BACKUP_FILE s3://$S3_BUCKET/backups/$$(basename $BACKUP_FILE)
 
 # Sterge fisierul local
 rm -f $BACKUP_FILE

@@ -22,3 +22,8 @@ variable "ec2_public_key" {
   description = "Public key"
   type        = string
 }
+variable "redis_password" {
+  description = "Password for Redis AUTH token"
+  type        = string
+  sensitive   = true
+}

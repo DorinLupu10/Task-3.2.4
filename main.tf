@@ -129,16 +129,20 @@ resource "aws_key_pair" "main" {
   public_key = var.ec2_public_key
 }
 
-# EC2 
+# EC2
 resource "aws_instance" "main" {
   ami                         = "ami-091138d0f0d41ff90"
   instance_type               = "t2.micro"
   subnet_id                   = module.vpc.public_subnets[0]
   vpc_security_group_ids      = [aws_security_group.ec2.id]
   key_name                    = aws_key_pair.main.key_name
-  user_data                   = file("install.sh")
   user_data_replace_on_change = true
-  iam_instance_profile        = aws_iam_instance_profile.ec2_profile.name # adaugă această linie
+  iam_instance_profile        = aws_iam_instance_profile.ec2_profile.name
+
+  user_data = templatefile("install.sh", {
+    redis_host     = aws_elasticache_replication_group.redis.primary_endpoint_address
+    redis_password = var.redis_password
+  })
 
   tags = {
     Name = "dorin-ec2"
@@ -328,16 +332,35 @@ resource "aws_elasticache_subnet_group" "main" {
 }
 
 
-resource "aws_elasticache_cluster" "redis" {
-  cluster_id           = "dorin-redis"
-  engine               = "redis"
-  node_type            = "cache.t3.micro"
-  num_cache_nodes      = 1
-  parameter_group_name = "default.redis7"
-  engine_version       = "7.1"
-  port                 = 6379
-  subnet_group_name    = aws_elasticache_subnet_group.main.name
-  security_group_ids   = [aws_security_group.elasticache.id]
+#resource "aws_elasticache_cluster" "redis" {
+# cluster_id           = "dorin-redis"
+# engine               = "redis"
+# node_type            = "cache.t3.micro"
+#  num_cache_nodes      = 1
+#  parameter_group_name = "default.redis7"
+#  engine_version       = "7.1"
+#  port                 = 6379
+#  subnet_group_name    = aws_elasticache_subnet_group.main.name
+#  security_group_ids   = [aws_security_group.elasticache.id]
+
+#  tags = {
+#    Name = "dorin-redis"
+#  }
+#}
+
+
+resource "aws_elasticache_replication_group" "redis" {
+  replication_group_id       = "dorin-redis"
+  description                = "Redis for Ghostfolio"
+  node_type                  = "cache.t3.micro"
+  num_cache_clusters         = 1
+  parameter_group_name       = "default.redis7"
+  engine_version             = "7.1"
+  port                       = 6379
+  subnet_group_name          = aws_elasticache_subnet_group.main.name
+  security_group_ids         = [aws_security_group.elasticache.id]
+  auth_token                 = var.redis_password
+  transit_encryption_enabled = true
 
   tags = {
     Name = "dorin-redis"
