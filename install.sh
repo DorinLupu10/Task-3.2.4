@@ -30,8 +30,8 @@ COMPOSE_PROJECT_NAME=ghostfolio
 #REDIS_PORT=6379
 #REDIS_PASSWORD=
 #REDIS_PASSWORD=redis123secure
-REDIS_HOST=${redis_host}
-REDIS_PORT=6379
+REDIS_HOST=172.17.0.1
+REDIS_PORT=6380
 REDIS_PASSWORD=${redis_password}
 POSTGRES_DB=ghostfolio-db
 POSTGRES_USER=ghostfolio
@@ -193,3 +193,19 @@ EOF
   -m ec2 \
   -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json \
   -s
+
+#stunnel
+apt install -y stunnel4
+
+cat > /etc/stunnel/redis.conf <<'STUNNEL'
+pid = /tmp/stunnel-redis.pid
+
+[redis]
+client = yes
+accept = 0.0.0.0:6380
+connect = master.dorin-redis.vofghc.use1.cache.amazonaws.com:6379
+verifyChain = no
+STUNNEL
+
+systemctl enable stunnel4
+systemctl start stunnel4
