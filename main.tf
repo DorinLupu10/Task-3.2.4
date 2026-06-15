@@ -142,6 +142,8 @@ resource "aws_instance" "main" {
   user_data = templatefile("install.sh", {
     redis_host     = aws_elasticache_replication_group.redis.primary_endpoint_address
     redis_password = var.redis_password
+    db_host        = aws_db_instance.postgres.address
+    db_password    = var.db_password
   })
 
   tags = {

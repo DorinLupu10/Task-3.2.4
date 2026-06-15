@@ -37,7 +37,7 @@ POSTGRES_DB=ghostfolio-db
 POSTGRES_USER=ghostfolio
 POSTGRES_PASSWORD=postgres123secure
 ACCESS_TOKEN_SALT=$$(openssl rand -hex 32)
-DATABASE_URL=postgresql://ghostfolio:postgres123secure@postgres:5432/ghostfolio-db?connect_timeout=300&sslmode=prefer
+DATABASE_URL=postgresql://ghostfolio:${db_password}@${db_host}:5432/ghostfolio_db?connect_timeout=300&sslmode=prefer
 JWT_SECRET_KEY=$$(openssl rand -hex 32)
 EOF
 
