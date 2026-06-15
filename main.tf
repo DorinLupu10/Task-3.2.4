@@ -470,6 +470,7 @@ resource "aws_security_group" "bastion" {
     cidr_blocks = [var.my_ip]
   }
 
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -501,4 +502,16 @@ resource "aws_route53_record" "bastion" {
   type    = "A"
   ttl     = 300
   records = [aws_eip.bastion[0].public_ip]
+}
+
+resource "aws_security_group_rule" "rds_from_bastion" {
+  count = var.env == "dev" ? 1 : 0
+
+  type                     = "ingress"
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.rds.id
+  source_security_group_id = aws_security_group.bastion[0].id
+  description              = "PostgreSQL from Bastion"
 }
