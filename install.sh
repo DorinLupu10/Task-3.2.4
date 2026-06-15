@@ -37,7 +37,7 @@ POSTGRES_DB=ghostfolio-db
 POSTGRES_USER=ghostfolio
 POSTGRES_PASSWORD=postgres123secure
 ACCESS_TOKEN_SALT=$$(openssl rand -hex 32)
-DATABASE_URL=postgresql://ghostfolio:postgres123secure@postgres:5432/ghostfolio-db?connect_timeout=300&sslmode=prefer
+DATABASE_URL=postgresql://ghostfolio:${db_password}@${db_host}:5432/ghostfolio_db?connect_timeout=300&sslmode=prefer
 JWT_SECRET_KEY=$$(openssl rand -hex 32)
 EOF
 
@@ -128,34 +128,34 @@ certbot --nginx \
 
 systemctl reload nginx
 
-# Script de backup
-cat > /usr/local/bin/backup.sh <<'BACKUP'
-#!/bin/bash
+# # Script de backup
+# cat > /usr/local/bin/backup.sh <<'BACKUP'
+# #!/bin/bash
 
-DATE=$$(date +%Y-%m-%d-%H-%M-%S)
-BACKUP_FILE="/tmp/ghostfolio-backup-$DATE.sql.gz"
-S3_BUCKET="dorin-db-backups"
-CONTAINER="gf-postgres"
-DB_USER="ghostfolio"
-DB_NAME="ghostfolio-db"
+# DATE=$$(date +%Y-%m-%d-%H-%M-%S)
+# BACKUP_FILE="/tmp/ghostfolio-backup-$DATE.sql.gz"
+# S3_BUCKET="dorin-db-backups"
+# CONTAINER="gf-postgres"
+# DB_USER="ghostfolio"
+# DB_NAME="ghostfolio-db"
 
-echo "Starting backup at $DATE..."
+# echo "Starting backup at $DATE..."
 
-# Dump baza de date si comprima
-docker exec $CONTAINER pg_dump -U $DB_USER $DB_NAME | gzip > $BACKUP_FILE
+# # Dump baza de date si comprima
+# docker exec $CONTAINER pg_dump -U $DB_USER $DB_NAME | gzip > $BACKUP_FILE
 
-# Upload in S3
-aws s3 cp $BACKUP_FILE s3://$S3_BUCKET/backups/$$(basename $BACKUP_FILE)
+# # Upload in S3
+# aws s3 cp $BACKUP_FILE s3://$S3_BUCKET/backups/$$(basename $BACKUP_FILE)
 
-# Sterge fisierul local
-rm -f $BACKUP_FILE
+# # Sterge fisierul local
+# rm -f $BACKUP_FILE
 
-echo "Backup completed successfully!"
-BACKUP
+# echo "Backup completed successfully!"
+# BACKUP
 
-chmod +x /usr/local/bin/backup.sh
+# chmod +x /usr/local/bin/backup.sh
 
-echo "0 3 * * * root /usr/local/bin/backup.sh >> /var/log/backup.log 2>&1" > /etc/cron.d/db-backup
+# echo "0 3 * * * root /usr/local/bin/backup.sh >> /var/log/backup.log 2>&1" > /etc/cron.d/db-backup
 
 # Instalare CloudWatch Agent
 wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb

@@ -14,8 +14,8 @@ module "vpc" {
   name = "dorin-vpc"
   cidr = "10.0.0.0/16"
 
-  azs            = ["us-east-1a"]
-  public_subnets = ["10.0.1.0/24"]
+  azs            = ["us-east-1a", "us-east-1b"]
+  public_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
 
   enable_nat_gateway = false
   enable_vpn_gateway = false
@@ -142,6 +142,8 @@ resource "aws_instance" "main" {
   user_data = templatefile("install.sh", {
     redis_host     = aws_elasticache_replication_group.redis.primary_endpoint_address
     redis_password = var.redis_password
+    db_host        = aws_db_instance.postgres.address
+    db_password    = var.db_password
   })
 
   tags = {
@@ -373,4 +375,143 @@ resource "aws_elasticache_replication_group" "redis" {
 resource "aws_iam_role_policy_attachment" "ec2_cloudwatch_policy" {
   role       = aws_iam_role.ec2_ecr_role.name
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+#Security Group for RDS
+resource "aws_security_group" "rds" {
+  name        = "dorin-rds-sg"
+  description = "Security group for RDS PostgreSQL"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    description     = "PostgreSQL from EC2"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.ec2.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "dorin-rds-sg"
+  }
+}
+
+# RDS subnet
+resource "aws_db_subnet_group" "main" {
+  name       = "dorin-rds-subnet-group"
+  subnet_ids = module.vpc.public_subnets
+
+  tags = {
+    Name = "dorin-rds-subnet-group"
+  }
+}
+
+# RDS PostgreSQL Instance
+resource "aws_db_instance" "postgres" {
+  identifier        = "dorin-rds"
+  engine            = "postgres"
+  engine_version    = "17.4"
+  instance_class    = "db.t3.micro"
+  allocated_storage = 20
+  storage_type      = "gp2"
+
+  db_name  = "ghostfolio_db"
+  username = "ghostfolio"
+  password = var.db_password
+
+  db_subnet_group_name   = aws_db_subnet_group.main.name
+  vpc_security_group_ids = [aws_security_group.rds.id]
+
+  backup_retention_period = 7
+  skip_final_snapshot     = true
+  deletion_protection     = false
+
+  tags = {
+    Name = "dorin-rds"
+  }
+}
+
+
+# Bastion Host  dev
+resource "aws_instance" "bastion" {
+  count = var.env == "dev" ? 1 : 0
+
+  ami                    = "ami-091138d0f0d41ff90"
+  instance_type          = "t2.micro"
+  subnet_id              = module.vpc.public_subnets[0]
+  vpc_security_group_ids = [aws_security_group.bastion[0].id]
+  key_name               = aws_key_pair.main.key_name
+
+  tags = {
+    Name = "dorin-bastion"
+  }
+}
+
+# Security Group for Bastion
+resource "aws_security_group" "bastion" {
+  count = var.env == "dev" ? 1 : 0
+
+  name        = "dorin-bastion-sg"
+  description = "Security group for Bastion Host"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    description = "SSH"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [var.my_ip]
+  }
+
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "dorin-bastion-sg"
+  }
+}
+
+# Elastic IP for Bastion
+resource "aws_eip" "bastion" {
+  count    = var.env == "dev" ? 1 : 0
+  instance = aws_instance.bastion[0].id
+  domain   = "vpc"
+
+  tags = {
+    Name = "dorin-bastion-eip"
+  }
+}
+
+# Route 53 record for Bastion
+resource "aws_route53_record" "bastion" {
+  count   = var.env == "dev" ? 1 : 0
+  zone_id = data.aws_route53_zone.main.zone_id
+  name    = "bastion.${var.domain_name}"
+  type    = "A"
+  ttl     = 300
+  records = [aws_eip.bastion[0].public_ip]
+}
+
+resource "aws_security_group_rule" "rds_from_bastion" {
+  count = var.env == "dev" ? 1 : 0
+
+  type                     = "ingress"
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.rds.id
+  source_security_group_id = aws_security_group.bastion[0].id
+  description              = "PostgreSQL from Bastion"
 }

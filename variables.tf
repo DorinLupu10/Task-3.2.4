@@ -27,3 +27,15 @@ variable "redis_password" {
   type        = string
   sensitive   = true
 }
+
+variable "db_password" {
+  description = "Password for RDS PostgreSQL"
+  type        = string
+  sensitive   = true
+}
+
+variable "env" {
+  description = "Environment dev"
+  type        = string
+  default     = "dev"
+}
