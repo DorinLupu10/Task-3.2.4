@@ -437,3 +437,68 @@ resource "aws_db_instance" "postgres" {
     Name = "dorin-rds"
   }
 }
+
+
+# Bastion Host  dev
+resource "aws_instance" "bastion" {
+  count = var.env == "dev" ? 1 : 0
+
+  ami                    = "ami-091138d0f0d41ff90"
+  instance_type          = "t2.micro"
+  subnet_id              = module.vpc.public_subnets[0]
+  vpc_security_group_ids = [aws_security_group.bastion[0].id]
+  key_name               = aws_key_pair.main.key_name
+
+  tags = {
+    Name = "dorin-bastion"
+  }
+}
+
+# Security Group for Bastion
+resource "aws_security_group" "bastion" {
+  count = var.env == "dev" ? 1 : 0
+
+  name        = "dorin-bastion-sg"
+  description = "Security group for Bastion Host"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    description = "SSH"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [var.my_ip]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "dorin-bastion-sg"
+  }
+}
+
+# Elastic IP for Bastion
+resource "aws_eip" "bastion" {
+  count    = var.env == "dev" ? 1 : 0
+  instance = aws_instance.bastion[0].id
+  domain   = "vpc"
+
+  tags = {
+    Name = "dorin-bastion-eip"
+  }
+}
+
+# Route 53 record for Bastion
+resource "aws_route53_record" "bastion" {
+  count   = var.env == "dev" ? 1 : 0
+  zone_id = data.aws_route53_zone.main.zone_id
+  name    = "bastion.${var.domain_name}"
+  type    = "A"
+  ttl     = 300
+  records = [aws_eip.bastion[0].public_ip]
+}
