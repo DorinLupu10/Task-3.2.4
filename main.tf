@@ -401,6 +401,16 @@ resource "aws_security_group" "rds" {
   }
 }
 
+# RDS subnet
+resource "aws_db_subnet_group" "main" {
+  name       = "dorin-rds-subnet-group"
+  subnet_ids = module.vpc.public_subnets
+
+  tags = {
+    Name = "dorin-rds-subnet-group"
+  }
+}
+
 # RDS PostgreSQL Instance
 resource "aws_db_instance" "postgres" {
   identifier        = "dorin-rds"
