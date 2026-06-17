@@ -417,7 +417,7 @@ resource "aws_db_subnet_group" "main" {
 resource "aws_db_instance" "postgres" {
   identifier        = "dorin-rds"
   engine            = "postgres"
-  engine_version    = "17.4"
+  engine_version    = "17.5"
   instance_class    = "db.t3.micro"
   allocated_storage = 20
   storage_type      = "gp2"
@@ -514,4 +514,20 @@ resource "aws_security_group_rule" "rds_from_bastion" {
   security_group_id        = aws_security_group.rds.id
   source_security_group_id = aws_security_group.bastion[0].id
   description              = "PostgreSQL from Bastion"
+}
+
+
+# ACM Certificate pentru ALB
+module "acm_alb" {
+  source  = "terraform-aws-modules/acm/aws"
+  version = "~> 4.0"
+
+  domain_name = var.domain_name
+  zone_id     = data.aws_route53_zone.main.zone_id
+
+  subject_alternative_names = [
+    "*.${var.domain_name}"
+  ]
+
+  wait_for_validation = true
 }
