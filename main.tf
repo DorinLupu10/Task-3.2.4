@@ -167,12 +167,25 @@ data "aws_route53_zone" "main" {
 }
 
 # Route 53
-resource "aws_route53_record" "ec2" {
+# resource "aws_route53_record" "ec2" {
+#   zone_id = data.aws_route53_zone.main.zone_id
+#   name    = "${var.subdomain}.${var.domain_name}"
+#   type    = "A"
+#   ttl     = 300
+#   records = [aws_eip.main.public_ip]
+# }
+
+
+resource "aws_route53_record" "alb" {
   zone_id = data.aws_route53_zone.main.zone_id
   name    = "${var.subdomain}.${var.domain_name}"
   type    = "A"
-  ttl     = 300
-  records = [aws_eip.main.public_ip]
+
+  alias {
+    name                   = aws_lb.main.dns_name
+    zone_id                = aws_lb.main.zone_id
+    evaluate_target_health = true
+  }
 }
 
 resource "aws_ecr_repository" "ghostfolio" {
