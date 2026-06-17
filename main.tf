@@ -180,6 +180,7 @@ resource "aws_route53_record" "alb" {
   zone_id = data.aws_route53_zone.main.zone_id
   name    = "${var.subdomain}.${var.domain_name}"
   type    = "A"
+    allow_overwrite = true
 
   alias {
     name                   = aws_lb.main.dns_name
