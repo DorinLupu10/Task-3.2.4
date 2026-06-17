@@ -630,3 +630,59 @@ resource "aws_lb_listener" "https" {
     target_group_arn = aws_lb_target_group.main.arn
   }
 }
+
+resource "aws_launch_template" "main" {
+  name        = "dorin-lt"
+  description = "Launch template for Ghostfolio ASG"
+
+  image_id      = "ami-0fe07a92137c82231"
+  instance_type = "t2.micro"
+  key_name      = aws_key_pair.main.key_name
+
+  vpc_security_group_ids = [aws_security_group.ec2.id]
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name = "dorin-asg-instance"
+    }
+  }
+}
+
+# Auto Scaling Group
+resource "aws_autoscaling_group" "main" {
+  name                = "dorin-asg"
+  desired_capacity    = 1
+  min_size            = 1
+  max_size            = 3
+  vpc_zone_identifier = module.vpc.public_subnets
+  target_group_arns   = [aws_lb_target_group.main.arn]
+
+  launch_template {
+    id      = aws_launch_template.main.id
+    version = "$Latest"
+  }
+
+  health_check_type         = "ELB"
+  health_check_grace_period = 300
+
+  tag {
+    key                 = "Name"
+    value               = "dorin-asg-instance"
+    propagate_at_launch = true
+  }
+}
+
+# Auto Scaling Policy - CPU 70%
+resource "aws_autoscaling_policy" "cpu" {
+  name                   = "dorin-cpu-policy"
+  autoscaling_group_name = aws_autoscaling_group.main.name
+  policy_type            = "TargetTrackingScaling"
+
+  target_tracking_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ASGAverageCPUUtilization"
+    }
+    target_value = 70.0
+  }
+}
