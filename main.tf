@@ -138,36 +138,36 @@ resource "aws_key_pair" "main" {
 }
 
 # EC2
-resource "aws_instance" "main" {
-  ami                         = "ami-091138d0f0d41ff90"
-  instance_type               = "t2.micro"
-  subnet_id                   = module.vpc.public_subnets[0]
-  vpc_security_group_ids      = [aws_security_group.ec2.id]
-  key_name                    = aws_key_pair.main.key_name
-  user_data_replace_on_change = true
-  iam_instance_profile        = aws_iam_instance_profile.ec2_profile.name
+# resource "aws_instance" "main" {
+#   ami                         = "ami-091138d0f0d41ff90"
+#   instance_type               = "t2.micro"
+#   subnet_id                   = module.vpc.public_subnets[0]
+#   vpc_security_group_ids      = [aws_security_group.ec2.id]
+#   key_name                    = aws_key_pair.main.key_name
+#   user_data_replace_on_change = true
+#   iam_instance_profile        = aws_iam_instance_profile.ec2_profile.name
 
-  user_data = templatefile("install.sh", {
-    redis_host     = aws_elasticache_replication_group.redis.primary_endpoint_address
-    redis_password = var.redis_password
-    db_host        = aws_db_instance.postgres.address
-    db_password    = var.db_password
-  })
+#   user_data = templatefile("install.sh", {
+#     redis_host     = aws_elasticache_replication_group.redis.primary_endpoint_address
+#     redis_password = var.redis_password
+#     db_host        = aws_db_instance.postgres.address
+#     db_password    = var.db_password
+#   })
 
-  tags = {
-    Name = "dorin-ec2"
-  }
-}
+#   tags = {
+#     Name = "dorin-ec2"
+#   }
+# }
 
 # elastic IP
-resource "aws_eip" "main" {
-  instance = aws_instance.main.id
-  domain   = "vpc"
+# resource "aws_eip" "main" {
+#   instance = aws_instance.main.id
+#   domain   = "vpc"
 
-  tags = {
-    Name = "dorin-eip"
-  }
-}
+#   tags = {
+#     Name = "dorin-eip"
+#   }
+# }
 
 data "aws_route53_zone" "main" {
   name         = var.domain_name
