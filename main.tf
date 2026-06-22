@@ -112,12 +112,12 @@ resource "aws_security_group" "ec2" {
   }
 
   ingress {
-  description     = "HTTP from ALB"
-  from_port       = 80
-  to_port         = 80
-  protocol        = "tcp"
-  security_groups = [aws_security_group.alb.id]
-}
+    description     = "HTTP from ALB"
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb.id]
+  }
 
   egress {
     from_port   = 0
@@ -185,9 +185,9 @@ data "aws_route53_zone" "main" {
 
 
 resource "aws_route53_record" "alb" {
-  zone_id = data.aws_route53_zone.main.zone_id
-  name    = "${var.subdomain}.${var.domain_name}"
-  type    = "A"
+  zone_id         = data.aws_route53_zone.main.zone_id
+  name            = "${var.subdomain}.${var.domain_name}"
+  type            = "A"
   allow_overwrite = true
 
   alias {
