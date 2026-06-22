@@ -782,3 +782,25 @@ resource "aws_lambda_permission" "sns" {
   principal     = "sns.amazonaws.com"
   source_arn    = aws_sns_topic.alerts.arn
 }
+
+resource "aws_cloudwatch_metric_alarm" "cpu_high" {
+  alarm_name          = "dorin-cpu-alarm"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = 300
+  statistic           = "Average"
+  threshold           = 90
+  alarm_description   = "CPU utilization above 90%"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.main.name
+  }
+
+  tags = {
+    Name = "dorin-cpu-alarm"
+  }
+}
