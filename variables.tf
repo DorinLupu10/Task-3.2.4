@@ -39,3 +39,9 @@ variable "env" {
   type        = string
   default     = "dev"
 }
+
+variable "discord_webhook_url" {
+  description = "Discord webhook URL for alerts"
+  type        = string
+  sensitive   = true
+}

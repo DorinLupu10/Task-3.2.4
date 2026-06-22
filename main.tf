@@ -717,3 +717,68 @@ resource "aws_sns_topic" "alerts" {
     Name = "dorin-alerts"
   }
 }
+
+# IAM Role pentru Lambda
+resource "aws_iam_role" "lambda_role" {
+  name = "dorin-lambda-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_basic" {
+  role       = aws_iam_role.lambda_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+# Lambda Function
+data "archive_file" "lambda_zip" {
+  type        = "zip"
+  source_file = "lambda/discord_alert.py"
+  output_path = "lambda/discord_alert.zip"
+}
+
+resource "aws_lambda_function" "discord_alert" {
+  filename         = "lambda/discord_alert.zip"
+  function_name    = "dorin-discord-alert"
+  role             = aws_iam_role.lambda_role.arn
+  handler          = "discord_alert.lambda_handler"
+  runtime          = "python3.12"
+  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+
+  environment {
+    variables = {
+      DISCORD_WEBHOOK_URL = var.discord_webhook_url
+    }
+  }
+
+  tags = {
+    Name = "dorin-discord-alert"
+  }
+}
+
+# SNS -> Lambda subscription
+resource "aws_sns_topic_subscription" "lambda" {
+  topic_arn = aws_sns_topic.alerts.arn
+  protocol  = "lambda"
+  endpoint  = aws_lambda_function.discord_alert.arn
+}
+
+# Permission pentru SNS sa invoce Lambda
+resource "aws_lambda_permission" "sns" {
+  statement_id  = "AllowSNSInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.discord_alert.function_name
+  principal     = "sns.amazonaws.com"
+  source_arn    = aws_sns_topic.alerts.arn
+}
