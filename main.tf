@@ -14,8 +14,8 @@ module "vpc" {
   name = "dorin-vpc"
   cidr = "10.0.0.0/16"
 
-  azs            = ["us-east-1a"]
-  public_subnets = ["10.0.1.0/24"]
+  azs            = ["us-east-1a", "us-east-1b"]
+  public_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
 
   enable_nat_gateway = false
   enable_vpn_gateway = false
@@ -111,6 +111,14 @@ resource "aws_security_group" "ec2" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  ingress {
+    description     = "HTTP from ALB"
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb.id]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -130,34 +138,36 @@ resource "aws_key_pair" "main" {
 }
 
 # EC2
-resource "aws_instance" "main" {
-  ami                         = "ami-091138d0f0d41ff90"
-  instance_type               = "t2.micro"
-  subnet_id                   = module.vpc.public_subnets[0]
-  vpc_security_group_ids      = [aws_security_group.ec2.id]
-  key_name                    = aws_key_pair.main.key_name
-  user_data_replace_on_change = true
-  iam_instance_profile        = aws_iam_instance_profile.ec2_profile.name
+# resource "aws_instance" "main" {
+#   ami                         = "ami-091138d0f0d41ff90"
+#   instance_type               = "t2.micro"
+#   subnet_id                   = module.vpc.public_subnets[0]
+#   vpc_security_group_ids      = [aws_security_group.ec2.id]
+#   key_name                    = aws_key_pair.main.key_name
+#   user_data_replace_on_change = true
+#   iam_instance_profile        = aws_iam_instance_profile.ec2_profile.name
 
-  user_data = templatefile("install.sh", {
-    redis_host     = aws_elasticache_replication_group.redis.primary_endpoint_address
-    redis_password = var.redis_password
-  })
+#   user_data = templatefile("install.sh", {
+#     redis_host     = aws_elasticache_replication_group.redis.primary_endpoint_address
+#     redis_password = var.redis_password
+#     db_host        = aws_db_instance.postgres.address
+#     db_password    = var.db_password
+#   })
 
-  tags = {
-    Name = "dorin-ec2"
-  }
-}
+#   tags = {
+#     Name = "dorin-ec2"
+#   }
+# }
 
 # elastic IP
-resource "aws_eip" "main" {
-  instance = aws_instance.main.id
-  domain   = "vpc"
+# resource "aws_eip" "main" {
+#   instance = aws_instance.main.id
+#   domain   = "vpc"
 
-  tags = {
-    Name = "dorin-eip"
-  }
-}
+#   tags = {
+#     Name = "dorin-eip"
+#   }
+# }
 
 data "aws_route53_zone" "main" {
   name         = var.domain_name
@@ -165,12 +175,26 @@ data "aws_route53_zone" "main" {
 }
 
 # Route 53
-resource "aws_route53_record" "ec2" {
-  zone_id = data.aws_route53_zone.main.zone_id
-  name    = "${var.subdomain}.${var.domain_name}"
-  type    = "A"
-  ttl     = 300
-  records = [aws_eip.main.public_ip]
+# resource "aws_route53_record" "ec2" {
+#   zone_id = data.aws_route53_zone.main.zone_id
+#   name    = "${var.subdomain}.${var.domain_name}"
+#   type    = "A"
+#   ttl     = 300
+#   records = [aws_eip.main.public_ip]
+# }
+
+
+resource "aws_route53_record" "alb" {
+  zone_id         = data.aws_route53_zone.main.zone_id
+  name            = "${var.subdomain}.${var.domain_name}"
+  type            = "A"
+  allow_overwrite = true
+
+  alias {
+    name                   = aws_lb.main.dns_name
+    zone_id                = aws_lb.main.zone_id
+    evaluate_target_health = true
+  }
 }
 
 resource "aws_ecr_repository" "ghostfolio" {
@@ -373,4 +397,417 @@ resource "aws_elasticache_replication_group" "redis" {
 resource "aws_iam_role_policy_attachment" "ec2_cloudwatch_policy" {
   role       = aws_iam_role.ec2_ecr_role.name
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+#Security Group for RDS
+resource "aws_security_group" "rds" {
+  name        = "dorin-rds-sg"
+  description = "Security group for RDS PostgreSQL"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    description     = "PostgreSQL from EC2"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.ec2.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "dorin-rds-sg"
+  }
+}
+
+# RDS subnet
+resource "aws_db_subnet_group" "main" {
+  name       = "dorin-rds-subnet-group"
+  subnet_ids = module.vpc.public_subnets
+
+  tags = {
+    Name = "dorin-rds-subnet-group"
+  }
+}
+
+# RDS PostgreSQL Instance
+resource "aws_db_instance" "postgres" {
+  identifier        = "dorin-rds"
+  engine            = "postgres"
+  engine_version    = "17.5"
+  instance_class    = "db.t3.micro"
+  allocated_storage = 20
+  storage_type      = "gp2"
+
+  db_name  = "ghostfolio_db"
+  username = "ghostfolio"
+  password = var.db_password
+
+  db_subnet_group_name   = aws_db_subnet_group.main.name
+  vpc_security_group_ids = [aws_security_group.rds.id]
+
+  backup_retention_period = 7
+  skip_final_snapshot     = true
+  deletion_protection     = false
+
+  tags = {
+    Name = "dorin-rds"
+  }
+}
+
+
+# Bastion Host  dev
+resource "aws_instance" "bastion" {
+  count = var.env == "dev" ? 1 : 0
+
+  ami                    = "ami-091138d0f0d41ff90"
+  instance_type          = "t2.micro"
+  subnet_id              = module.vpc.public_subnets[0]
+  vpc_security_group_ids = [aws_security_group.bastion[0].id]
+  key_name               = aws_key_pair.main.key_name
+
+  tags = {
+    Name = "dorin-bastion"
+  }
+}
+
+# Security Group for Bastion
+resource "aws_security_group" "bastion" {
+  count = var.env == "dev" ? 1 : 0
+
+  name        = "dorin-bastion-sg"
+  description = "Security group for Bastion Host"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    description = "SSH"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [var.my_ip]
+  }
+
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "dorin-bastion-sg"
+  }
+}
+
+# Elastic IP for Bastion
+resource "aws_eip" "bastion" {
+  count    = var.env == "dev" ? 1 : 0
+  instance = aws_instance.bastion[0].id
+  domain   = "vpc"
+
+  tags = {
+    Name = "dorin-bastion-eip"
+  }
+}
+
+# Route 53 record for Bastion
+resource "aws_route53_record" "bastion" {
+  count   = var.env == "dev" ? 1 : 0
+  zone_id = data.aws_route53_zone.main.zone_id
+  name    = "bastion.${var.domain_name}"
+  type    = "A"
+  ttl     = 300
+  records = [aws_eip.bastion[0].public_ip]
+}
+
+resource "aws_security_group_rule" "rds_from_bastion" {
+  count = var.env == "dev" ? 1 : 0
+
+  type                     = "ingress"
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.rds.id
+  source_security_group_id = aws_security_group.bastion[0].id
+  description              = "PostgreSQL from Bastion"
+}
+
+
+# ACM Certificate pentru ALB
+module "acm_alb" {
+  source  = "terraform-aws-modules/acm/aws"
+  version = "~> 4.0"
+
+  domain_name = var.domain_name
+  zone_id     = data.aws_route53_zone.main.zone_id
+
+  subject_alternative_names = [
+    "*.${var.domain_name}"
+  ]
+
+  wait_for_validation = true
+}
+
+# Security Group pentru ALB
+resource "aws_security_group" "alb" {
+  name        = "dorin-alb-sg"
+  description = "Security group for ALB"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    description = "HTTP"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "HTTPS"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "dorin-alb-sg"
+  }
+}
+
+# Target Group
+resource "aws_lb_target_group" "main" {
+  name     = "dorin-tg"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = module.vpc.vpc_id
+
+  health_check {
+    path                = "/api/v1/health"
+    protocol            = "HTTP"
+    healthy_threshold   = 5
+    unhealthy_threshold = 2
+    timeout             = 5
+    interval            = 30
+  }
+
+  tags = {
+    Name = "dorin-tg"
+  }
+}
+
+# Application Load Balancer
+resource "aws_lb" "main" {
+  name               = "dorin-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.alb.id]
+  subnets            = module.vpc.public_subnets
+
+  tags = {
+    Name = "dorin-alb"
+  }
+}
+
+# ALB Listener HTTP - redirect to HTTPS
+resource "aws_lb_listener" "http" {
+  load_balancer_arn = aws_lb.main.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type = "redirect"
+
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
+# ALB Listener HTTPS
+resource "aws_lb_listener" "https" {
+  load_balancer_arn = aws_lb.main.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+  certificate_arn   = module.acm_alb.acm_certificate_arn
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.main.arn
+  }
+}
+
+resource "aws_launch_template" "main" {
+  name        = "dorin-lt"
+  description = "Launch template for Ghostfolio ASG"
+
+  image_id      = "ami-0fe07a92137c82231"
+  instance_type = "t2.micro"
+  key_name      = aws_key_pair.main.key_name
+
+  vpc_security_group_ids = [aws_security_group.ec2.id]
+
+  user_data = base64encode(<<-EOF
+    #!/bin/bash
+    cd /home/ubuntu/app
+    docker compose --env-file /home/ubuntu/app/.env up -d
+  EOF
+  )
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name = "dorin-asg-instance"
+    }
+  }
+}
+
+# Auto Scaling Group
+resource "aws_autoscaling_group" "main" {
+  name                = "dorin-asg"
+  desired_capacity    = 1
+  min_size            = 1
+  max_size            = 3
+  vpc_zone_identifier = module.vpc.public_subnets
+  target_group_arns   = [aws_lb_target_group.main.arn]
+
+  launch_template {
+    id      = aws_launch_template.main.id
+    version = "$Latest"
+  }
+
+  health_check_type         = "ELB"
+  health_check_grace_period = 300
+
+  tag {
+    key                 = "Name"
+    value               = "dorin-asg-instance"
+    propagate_at_launch = true
+  }
+}
+
+# Auto Scaling Policy - CPU 70%
+resource "aws_autoscaling_policy" "cpu" {
+  name                   = "dorin-cpu-policy"
+  autoscaling_group_name = aws_autoscaling_group.main.name
+  policy_type            = "TargetTrackingScaling"
+
+  target_tracking_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ASGAverageCPUUtilization"
+    }
+    target_value = 70.0
+  }
+}
+
+
+resource "aws_sns_topic" "alerts" {
+  name = "dorin-alerts"
+
+  tags = {
+    Name = "dorin-alerts"
+  }
+}
+
+# IAM Role pentru Lambda
+resource "aws_iam_role" "lambda_role" {
+  name = "dorin-lambda-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_basic" {
+  role       = aws_iam_role.lambda_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+# Lambda Function
+data "archive_file" "lambda_zip" {
+  type        = "zip"
+  source_file = "lambda/discord_alert.py"
+  output_path = "lambda/discord_alert.zip"
+}
+
+resource "aws_lambda_function" "discord_alert" {
+  filename         = "lambda/discord_alert.zip"
+  function_name    = "dorin-discord-alert"
+  role             = aws_iam_role.lambda_role.arn
+  handler          = "discord_alert.lambda_handler"
+  runtime          = "python3.12"
+  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+
+  environment {
+    variables = {
+      DISCORD_WEBHOOK_URL = var.discord_webhook_url
+    }
+  }
+
+  tags = {
+    Name = "dorin-discord-alert"
+  }
+}
+
+# SNS -> Lambda subscription
+resource "aws_sns_topic_subscription" "lambda" {
+  topic_arn = aws_sns_topic.alerts.arn
+  protocol  = "lambda"
+  endpoint  = aws_lambda_function.discord_alert.arn
+}
+
+# Permission pentru SNS sa invoce Lambda
+resource "aws_lambda_permission" "sns" {
+  statement_id  = "AllowSNSInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.discord_alert.function_name
+  principal     = "sns.amazonaws.com"
+  source_arn    = aws_sns_topic.alerts.arn
+}
+
+resource "aws_cloudwatch_metric_alarm" "cpu_high" {
+  alarm_name          = "dorin-cpu-alarm"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = 300
+  statistic           = "Average"
+  threshold           = 90
+  alarm_description   = "CPU utilization above 90%"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.main.name
+  }
+
+  tags = {
+    Name = "dorin-cpu-alarm"
+  }
 }

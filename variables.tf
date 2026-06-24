@@ -27,3 +27,21 @@ variable "redis_password" {
   type        = string
   sensitive   = true
 }
+
+variable "db_password" {
+  description = "Password for RDS PostgreSQL"
+  type        = string
+  sensitive   = true
+}
+
+variable "env" {
+  description = "Environment dev"
+  type        = string
+  default     = "dev"
+}
+
+variable "discord_webhook_url" {
+  description = "Discord webhook URL for alerts"
+  type        = string
+  sensitive   = true
+}
